@@ -39,6 +39,7 @@ The control panel in the top-left corner allows you to manipulate the simulation
 
 ## Potential Improvements
 
+* Make applying the attractor another continuous parameter that the user can play with. 
 * Add more attractor types (e.g., De Jong, Peter de Jong).
 * Implement mouse interaction (e.g., attract/repel particles).
 * Optimize performance for a larger number of particles.

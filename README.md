@@ -8,7 +8,7 @@ Video: https://youtu.be/bXrRpF_-TTM
 
 ## How to Run
 
-Open emergent-complexity.html file
+Open emergent-complexity.html file in browser
 
 ## Features
 

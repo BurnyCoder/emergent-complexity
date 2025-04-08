@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complex Mathematical Art</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Basic styling for the body and canvas */
+        body {
+            margin: 0;
+            overflow: hidden; /* Prevent scrollbars */
+            background-color: #000; /* Dark background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Inter', sans-serif; /* Use Inter font */
+        }
+        canvas {
+            display: block;
+            background-color: #0a0a0a; /* Slightly lighter canvas background */
+            border-radius: 0.5rem; /* Rounded corners for the canvas */
+            box-shadow: 0 0 20px rgba(100, 150, 255, 0.3); /* Subtle glow */
+        }
+        /* Style for the controls overlay */
+        #controls {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            background-color: rgba(30, 30, 30, 0.8); /* Semi-transparent dark background */
+            padding: 1rem;
+            border-radius: 0.5rem; /* Rounded corners */
+            color: white;
+            font-size: 0.875rem; /* Small text */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 300px;
+            max-height: calc(100vh - 2rem); /* Limit height */
+            overflow-y: auto; /* Add scroll if needed */
+        }
+        #controls label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        #controls input[type="range"] {
+            width: 100%;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+        }
+         #controls button {
+            background-color: #4a90e2; /* Blue button */
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem; /* Rounded corners */
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            font-weight: 500;
+            margin-top: 0.5rem;
+         }
+         #controls button:hover {
+            background-color: #357abd; /* Darker blue on hover */
+         }
+         /* Style for the message box */
+        #messageBox {
+            position: absolute;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            display: none; /* Hidden by default */
+            z-index: 10;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="mathArtCanvas"></canvas>
+
+    <div id="controls">
+        <h3 class="text-lg font-semibold mb-3">Controls</h3>
+        <label for="numParticles">Particles: <span id="numParticlesValue">500</span></label>
+        <input type="range" id="numParticles" min="100" max="2000" value="500" step="100">
+
+        <label for="trailOpacity">Trail Opacity: <span id="trailOpacityValue">0.05</span></label>
+        <input type="range" id="trailOpacity" min="0.01" max="0.3" value="0.05" step="0.01">
+
+        <label for="interactionStrength">Repulsion: <span id="interactionStrengthValue">0.01</span></label>
+        <input type="range" id="interactionStrength" min="0" max="0.1" value="0.01" step="0.005">
+
+        <label for="interactionRadius">Repulsion Radius: <span id="interactionRadiusValue">60</span></label>
+        <input type="range" id="interactionRadius" min="10" max="150" value="60" step="5">
+
+        <label for="colorInfluence">Color Influence: <span id="colorInfluenceValue">0.02</span></label>
+        <input type="range" id="colorInfluence" min="0" max="0.1" value="0.02" step="0.005">
+
+        <label for="densityThreshold">Density Threshold: <span id="densityThresholdValue">8</span></label>
+        <input type="range" id="densityThreshold" min="2" max="30" value="8" step="1">
+
+        <label for="antiClusterStrength">Anti-Cluster Force: <span id="antiClusterStrengthValue">0.03</span></label>
+        <input type="range" id="antiClusterStrength" min="0" max="0.1" value="0.03" step="0.005">
+        <button id="resetButton">Reset Simulation</button>
+        <p class="text-xs mt-3 text-gray-400">Adjust parameters and watch the complexity emerge!</p>
+    </div>
+
+     <div id="messageBox">This is a message!</div>
+
+    <script>
+        // --- Canvas Setup ---
+        const canvas = document.getElementById('mathArtCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let particles = [];
+        let animationFrameId; // To control the animation loop
+
+        // --- Parameters ---
+        let PARAMS = {
+            NUM_PARTICLES: 500,
+            // Clifford Attractor parameters
+            A: -1.4 + Math.random() * 0.8,
+            B: 1.6 + Math.random() * 0.4,
+            C: 1.0 + Math.random() * 0.5,
+            D: 0.7 + Math.random() * 0.3,
+            SCALE: 150, // Scale factor for drawing
+            PARTICLE_SIZE: 1.5,
+            MAX_SPEED: 3,
+            INTERACTION_RADIUS: 60, // Increased default radius for repulsion
+            INTERACTION_STRENGTH: 0.01,
+            COLOR_INFLUENCE_RADIUS: 30,
+            COLOR_INFLUENCE_STRENGTH: 0.02,
+            TRAIL_OPACITY: 0.05,
+            ATTRACTOR_PULL_STRENGTH: 0.005,
+            // New Anti-Clustering parameters
+            DENSITY_CHECK_RADIUS: 60, // Radius to check for density (can be same as interaction or different)
+            DENSITY_THRESHOLD: 8,    // How many neighbors trigger anti-cluster force
+            ANTI_CLUSTER_STRENGTH: 0.03, // How strongly particles push away from dense centers
+        };
+
+        // --- UI Elements ---
+        const numParticlesSlider = document.getElementById('numParticles');
+        const numParticlesValueSpan = document.getElementById('numParticlesValue');
+        const trailOpacitySlider = document.getElementById('trailOpacity');
+        const trailOpacityValueSpan = document.getElementById('trailOpacityValue');
+        const interactionStrengthSlider = document.getElementById('interactionStrength');
+        const interactionStrengthValueSpan = document.getElementById('interactionStrengthValue');
+        const interactionRadiusSlider = document.getElementById('interactionRadius'); // New slider element
+        const interactionRadiusValueSpan = document.getElementById('interactionRadiusValue'); // New span element
+        const colorInfluenceSlider = document.getElementById('colorInfluence');
+        const colorInfluenceValueSpan = document.getElementById('colorInfluenceValue');
+        const densityThresholdSlider = document.getElementById('densityThreshold'); // New slider element
+        const densityThresholdValueSpan = document.getElementById('densityThresholdValue'); // New span element
+        const antiClusterStrengthSlider = document.getElementById('antiClusterStrength'); // New slider element
+        const antiClusterStrengthValueSpan = document.getElementById('antiClusterStrengthValue'); // New span element
+        const resetButton = document.getElementById('resetButton');
+        const messageBox = document.getElementById('messageBox');
+
+        // --- Utility Functions ---
+        function random(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        function distSq(x1, y1, x2, y2) {
+            const dx = x1 - x2;
+            const dy = y1 - y2;
+            return dx * dx + dy * dy;
+        }
+
+        function showMessage(msg, duration = 3000) {
+            messageBox.textContent = msg;
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, duration);
+        }
+
+        // --- Particle Class ---
+        class Particle {
+            constructor(attractorX, attractorY, canvasX, canvasY) {
+                this.x = canvasX;
+                this.y = canvasY;
+                this.attractorX = attractorX;
+                this.attractorY = attractorY;
+                this.vx = random(-0.5, 0.5);
+                this.vy = random(-0.5, 0.5);
+                this.hue = random(0, 360);
+                this.saturation = 80;
+                this.lightness = 50;
+                this.targetHue = this.hue;
+            }
+
+            updateAttractor() {
+                const { A, B, C, D } = PARAMS;
+                const x_n = this.attractorX;
+                const y_n = this.attractorY;
+
+                this.attractorX = Math.sin(A * y_n) + C * Math.cos(A * x_n);
+                this.attractorY = Math.sin(B * x_n) + D * Math.cos(B * y_n);
+
+                const targetX = this.attractorX * PARAMS.SCALE + width / 2;
+                const targetY = this.attractorY * PARAMS.SCALE + height / 2;
+
+                this.vx += (targetX - this.x) * PARAMS.ATTRACTOR_PULL_STRENGTH;
+                this.vy += (targetY - this.y) * PARAMS.ATTRACTOR_PULL_STRENGTH;
+            }
+
+            // *** MODIFIED updateInteractions ***
+            updateInteractions(particles) {
+                let forceX = 0;
+                let forceY = 0;
+                let nearbyHueSumDiff = 0; // Sum of hue differences
+                let colorNeighbors = 0;
+                let densityNeighbors = 0; // Count neighbors for density check
+                let densityCenterX = 0;   // Sum of X positions for density center
+                let densityCenterY = 0;   // Sum of Y positions for density center
+
+                const interactionRadiusSq = PARAMS.INTERACTION_RADIUS * PARAMS.INTERACTION_RADIUS;
+                const colorInfluenceRadiusSq = PARAMS.COLOR_INFLUENCE_RADIUS * PARAMS.COLOR_INFLUENCE_RADIUS;
+                const densityCheckRadiusSq = PARAMS.DENSITY_CHECK_RADIUS * PARAMS.DENSITY_CHECK_RADIUS;
+
+                particles.forEach(other => {
+                    if (other === this) return;
+
+                    const dSq = distSq(this.x, this.y, other.x, other.y);
+
+                    // --- Positional Interaction (Repulsion) ---
+                    if (dSq < interactionRadiusSq && dSq > 1) {
+                        const d = Math.sqrt(dSq);
+                        const F = (PARAMS.INTERACTION_RADIUS - d) / d * PARAMS.INTERACTION_STRENGTH;
+                        forceX += (this.x - other.x) * F;
+                        forceY += (this.y - other.y) * F;
+                    }
+
+                    // --- Color Influence (Blending) ---
+                     if (dSq < colorInfluenceRadiusSq) {
+                        let hueDiff = other.hue - this.targetHue;
+                        if (hueDiff > 180) hueDiff -= 360;
+                        if (hueDiff < -180) hueDiff += 360;
+                        nearbyHueSumDiff += hueDiff;
+                        colorNeighbors++;
+                    }
+
+                    // --- Density Check ---
+                    if (dSq < densityCheckRadiusSq) {
+                        densityNeighbors++;
+                        densityCenterX += other.x;
+                        densityCenterY += other.y;
+                    }
+                });
+
+                // --- Apply Anti-Clustering Force ---
+                if (densityNeighbors >= PARAMS.DENSITY_THRESHOLD) {
+                    const avgX = densityCenterX / densityNeighbors;
+                    const avgY = densityCenterY / densityNeighbors;
+                    // Vector from center of dense cluster to this particle
+                    const pushX = this.x - avgX;
+                    const pushY = this.y - avgY;
+                    const distFromCenter = Math.sqrt(pushX * pushX + pushY * pushY);
+
+                    if (distFromCenter > 1) { // Avoid division by zero/huge forces if particle is at the center
+                        // Normalized push vector
+                        const normPushX = pushX / distFromCenter;
+                        const normPushY = pushY / distFromCenter;
+                        // Apply force pushing away from the center
+                        forceX += normPushX * PARAMS.ANTI_CLUSTER_STRENGTH;
+                        forceY += normPushY * PARAMS.ANTI_CLUSTER_STRENGTH;
+                    }
+                }
+
+                // Apply accumulated forces
+                this.vx += forceX;
+                this.vy += forceY;
+
+                // Apply color influence
+                if (colorNeighbors > 0) {
+                    const averageHueDifference = nearbyHueSumDiff / colorNeighbors;
+                    this.targetHue = (this.targetHue + averageHueDifference * PARAMS.COLOR_INFLUENCE_STRENGTH) % 360;
+                     if (this.targetHue < 0) this.targetHue += 360;
+                }
+            }
+
+            move() {
+                let hueShift = this.targetHue - this.hue;
+                 if (hueShift > 180) hueShift -= 360;
+                 if (hueShift < -180) hueShift += 360;
+                this.hue = (this.hue + hueShift * 0.1) % 360;
+                if (this.hue < 0) this.hue += 360;
+
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (speed > PARAMS.MAX_SPEED) {
+                    this.vx = (this.vx / speed) * PARAMS.MAX_SPEED;
+                    this.vy = (this.vy / speed) * PARAMS.MAX_SPEED;
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                this.vx *= 0.98; // Friction/Damping
+                this.vy *= 0.98;
+
+                if (this.x < 0) this.x = width;
+                if (this.x > width) this.x = 0;
+                if (this.y < 0) this.y = height;
+                if (this.y > height) this.y = 0;
+            }
+
+            draw(ctx) {
+                ctx.fillStyle = `hsla(${this.hue}, ${this.saturation}%, ${this.lightness}%, 0.8)`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, PARAMS.PARTICLE_SIZE, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // --- Initialization ---
+        function setup() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+
+            width = window.innerWidth * 0.9;
+            height = window.innerHeight * 0.9;
+            width = Math.max(width, 400);
+            height = Math.max(height, 400);
+            canvas.width = width;
+            canvas.height = height;
+
+            PARAMS.A = -1.4 + Math.random() * 0.8;
+            PARAMS.B = 1.6 + Math.random() * 0.4;
+            PARAMS.C = 1.0 + Math.random() * 0.5;
+            PARAMS.D = 0.7 + Math.random() * 0.3;
+
+            particles = [];
+            for (let i = 0; i < PARAMS.NUM_PARTICLES; i++) {
+                const randomCanvasX = random(0, width);
+                const randomCanvasY = random(0, height);
+                const randomAttractorX = random(-1.5, 1.5);
+                const randomAttractorY = random(-1.5, 1.5);
+                particles.push(new Particle(randomAttractorX, randomAttractorY, randomCanvasX, randomCanvasY));
+            }
+
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, width, height);
+
+            animate();
+            showMessage("Simulation Reset!", 2000);
+        }
+
+        // --- Animation Loop ---
+        function animate() {
+            ctx.fillStyle = `rgba(10, 10, 10, ${PARAMS.TRAIL_OPACITY})`;
+            ctx.fillRect(0, 0, width, height);
+
+            const currentParticles = [...particles];
+            particles.forEach(p => {
+                p.updateAttractor();
+                p.updateInteractions(currentParticles);
+                p.move();
+                p.draw(ctx);
+            });
+
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        // --- Event Listeners ---
+        numParticlesSlider.addEventListener('input', (e) => {
+            PARAMS.NUM_PARTICLES = parseInt(e.target.value);
+            numParticlesValueSpan.textContent = PARAMS.NUM_PARTICLES;
+            showMessage("Resetting simulation...", 1500);
+            setTimeout(setup, 50);
+        });
+
+        trailOpacitySlider.addEventListener('input', (e) => {
+            PARAMS.TRAIL_OPACITY = parseFloat(e.target.value);
+            trailOpacityValueSpan.textContent = PARAMS.TRAIL_OPACITY.toFixed(2);
+        });
+
+        interactionStrengthSlider.addEventListener('input', (e) => {
+            PARAMS.INTERACTION_STRENGTH = parseFloat(e.target.value);
+            interactionStrengthValueSpan.textContent = PARAMS.INTERACTION_STRENGTH.toFixed(3);
+        });
+
+        // Listener for Interaction Radius
+        interactionRadiusSlider.addEventListener('input', (e) => {
+            PARAMS.INTERACTION_RADIUS = parseFloat(e.target.value);
+            // Optionally link density check radius to interaction radius, or keep separate
+            PARAMS.DENSITY_CHECK_RADIUS = PARAMS.INTERACTION_RADIUS; // Link them for simplicity now
+            interactionRadiusValueSpan.textContent = PARAMS.INTERACTION_RADIUS.toFixed(0);
+        });
+
+        colorInfluenceSlider.addEventListener('input', (e) => {
+            PARAMS.COLOR_INFLUENCE_STRENGTH = parseFloat(e.target.value);
+            colorInfluenceValueSpan.textContent = PARAMS.COLOR_INFLUENCE_STRENGTH.toFixed(3);
+        });
+
+        // Listener for Density Threshold
+        densityThresholdSlider.addEventListener('input', (e) => {
+            PARAMS.DENSITY_THRESHOLD = parseInt(e.target.value);
+            densityThresholdValueSpan.textContent = PARAMS.DENSITY_THRESHOLD;
+        });
+
+        // Listener for Anti-Cluster Strength
+        antiClusterStrengthSlider.addEventListener('input', (e) => {
+            PARAMS.ANTI_CLUSTER_STRENGTH = parseFloat(e.target.value);
+            antiClusterStrengthValueSpan.textContent = PARAMS.ANTI_CLUSTER_STRENGTH.toFixed(3);
+        });
+
+
+        resetButton.addEventListener('click', setup);
+
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                showMessage("Resizing canvas...", 1000);
+                setup();
+            }, 250);
+        });
+
+        // --- Initial Setup ---
+        function initializeControls() {
+            numParticlesValueSpan.textContent = PARAMS.NUM_PARTICLES;
+            trailOpacityValueSpan.textContent = PARAMS.TRAIL_OPACITY.toFixed(2);
+            interactionStrengthValueSpan.textContent = PARAMS.INTERACTION_STRENGTH.toFixed(3);
+            interactionRadiusValueSpan.textContent = PARAMS.INTERACTION_RADIUS.toFixed(0); // Init new span
+            colorInfluenceValueSpan.textContent = PARAMS.COLOR_INFLUENCE_STRENGTH.toFixed(3);
+            densityThresholdValueSpan.textContent = PARAMS.DENSITY_THRESHOLD; // Init new span
+            antiClusterStrengthValueSpan.textContent = PARAMS.ANTI_CLUSTER_STRENGTH.toFixed(3); // Init new span
+
+            numParticlesSlider.value = PARAMS.NUM_PARTICLES;
+            trailOpacitySlider.value = PARAMS.TRAIL_OPACITY;
+            interactionStrengthSlider.value = PARAMS.INTERACTION_STRENGTH;
+            interactionRadiusSlider.value = PARAMS.INTERACTION_RADIUS; // Init new slider
+            colorInfluenceSlider.value = PARAMS.COLOR_INFLUENCE_STRENGTH;
+            densityThresholdSlider.value = PARAMS.DENSITY_THRESHOLD; // Init new slider
+            antiClusterStrengthSlider.value = PARAMS.ANTI_CLUSTER_STRENGTH; // Init new slider
+        }
+
+        window.onload = () => {
+            initializeControls(); // Set control values
+            setup(); // Run the simulation setup
+        };
+
+    </script>
+</body>
+</html>

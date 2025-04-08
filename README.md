@@ -1,5 +1,6 @@
 # Emergent complexity
-Interactive generative art visualization where particles move based on the [Clifford Attractor](https://en.wikipedia.org/wiki/Clifford_attractor) and user-adjustable parameters for particle count, trail opacity, repulsion strength/radius, color influence, density threshold, and anti-cluster force, forming complex patterns on a canvas, made with HTML with Canvas API, Tailwind CSS, JavaScript.
+
+Interactive generative art visualization where particles move based on the [Clifford Attractor](https://en.wikipedia.org/wiki/Clifford_attractor) and user-adjustable parameters for particle count, trail opacity, repulsion strength/radius, color influence, density threshold, and anti-cluster force, forming complex patterns on a canvas. Made with HTML with Canvas API, Tailwind CSS, JavaScript.
 
 ![image](https://github.com/user-attachments/assets/d903e76f-bc08-4da2-87ae-5ec306d41d89)
 

@@ -41,6 +41,6 @@ The control panel in the top-left corner allows you to manipulate the simulation
 
 * Add more attractor types (e.g., De Jong, Peter de Jong).
 * Implement mouse interaction (e.g., attract/repel particles).
-* Optimize performance for a larger number of particles (e.g., using spatial partitioning).
+* Optimize performance for a larger number of particles.
 * Add functionality to save the current canvas state as an image.
 * Explore different color mapping strategies.
